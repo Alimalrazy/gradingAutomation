@@ -1,7 +1,13 @@
 import google.generativeai as genai
 import os
-from dotenv import load_dotenv
 import re
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv might not be needed in deployment
+    pass
 
 class GeminiGrader:
     def __init__(self):
@@ -17,7 +23,7 @@ class GeminiGrader:
         
         # Initialize the model (try multiple model names for compatibility)
         try:
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
         except Exception:
             try:
                 self.model = genai.GenerativeModel('gemini-pro')
