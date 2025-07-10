@@ -8,7 +8,7 @@ import os
 # ====================================================================
 # Replace "abc-123" with your actual Google API key
 # Get your API key from: https://makersuite.google.com/app/apikey
-GOOGLE_API_KEY = "AIzaSyC35mil4vDAAmBkEVFVGyY8XEA5qGP3HSs"
+GOOGLE_API_KEY = "abc-123"
 # ====================================================================
 
 # Set page configuration
@@ -192,13 +192,13 @@ def main():
     with st.sidebar:
         st.header("⚙️ Configuration")
         
-        # API Key (hardcoded in codebase)
+        # API Key status (hidden from users)
         api_key = GOOGLE_API_KEY  # Using the API key from top of file
         
-        st.markdown(f"""
+        st.markdown("""
         <div style="background-color: #d4edda; padding: 10px; border-radius: 5px; border-left: 4px solid #28a745;">
-            <strong>✅ API Key Configured</strong><br>
-            Using built-in API key: <code>{api_key}</code>
+            <strong>✅ API Configuration</strong><br>
+            System is ready for AI grading
         </div>
         """, unsafe_allow_html=True)
         
@@ -207,11 +207,11 @@ def main():
         # Instructions
         st.header("📋 How to Use")
         st.markdown("""
-        1. ✅ API key is already configured
-        2. Input the question in the first text area
-        3. Input the answer in the second text area
-        4. Click 'Grade Answer' to get your score
-        5. Review the detailed feedback
+        1. Input your question in the text area below
+        2. Input the student's answer
+        3. Click 'Grade Answer' to get instant results
+        4. Review the detailed AI feedback
+        5. Get a score from 0-10 with explanations
         """)
         
         st.markdown("---")
@@ -229,13 +229,15 @@ def main():
         
         st.markdown("---")
         
-        # API key link
-        st.markdown(f"""
-        **API Key Status:**
+        # System info
+        st.markdown("""
+        **System Status:**
         
-        ✅ Using hardcoded API key: `{GOOGLE_API_KEY}`
+        ✅ AI Model: Google Gemini
         
-        To change the API key, modify `GOOGLE_API_KEY` at the top of `gemini_grader.py`
+        ✅ Grading System: Active
+        
+        ✅ Ready to evaluate answers
         """)
     
     # Main content
@@ -327,7 +329,7 @@ def main():
     st.markdown("""
     <div style='text-align: center; color: #666; font-size: 0.9em;'>
         Built with ❤️ using Streamlit and Google Gemini AI<br>
-        <em>Powered by AI for intelligent answer evaluation</em>
+        <em>Intelligent Answer Evaluation System</em>
     </div>
     """, unsafe_allow_html=True)
 
