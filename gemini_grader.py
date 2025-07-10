@@ -1,22 +1,16 @@
 import streamlit as st
+import google.generativeai as genai
+import re
 import os
-import time
-
-try:
-    from gemini_grader import GeminiGrader
-except ImportError as e:
-    st.error(f"Import error: {e}")
-    st.stop()
 
 # Set page configuration
 st.set_page_config(
     page_title="AI Answer Grader",
     page_icon="📝",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# Custom CSS for better styling
+# Custom CSS
 st.markdown("""
 <style>
     .main-header {
@@ -69,6 +63,94 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def grade_answer(question, answer, api_key):
+    """Grade an answer using Gemini API"""
+    try:
+        # Configure Gemini
+        genai.configure(api_key=api_key)
+        
+        # Try different model names
+        model_names = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro', 'gemini-1.0-pro']
+        model = None
+        
+        for model_name in model_names:
+            try:
+                model = genai.GenerativeModel(model_name)
+                # Test the model
+                test_response = model.generate_content("Say hello")
+                if test_response.text:
+                    break
+            except:
+                continue
+        
+        if not model:
+            return {"grade": 0, "feedback": "Could not connect to any Gemini model"}
+        
+        # Create grading prompt
+        prompt = f"""
+        You are an expert grader. Please evaluate this answer based on the given question.
+
+        QUESTION:
+        {question}
+
+        STUDENT'S ANSWER:
+        {answer}
+
+        Please grade this answer on a scale of 0-10 based on:
+        1. Accuracy and correctness
+        2. Completeness of the answer
+        3. Clarity and organization
+        4. Relevance to the question
+        5. Depth of understanding
+
+        IMPORTANT: Please provide your response in this exact format:
+        GRADE: [number from 0-10]
+        FEEDBACK: [Your detailed feedback explaining the grade]
+
+        Be fair but thorough in your evaluation.
+        """
+        
+        # Generate response
+        response = model.generate_content(prompt)
+        
+        if response.text:
+            return parse_response(response.text)
+        else:
+            return {"grade": 0, "feedback": "No response from AI model"}
+            
+    except Exception as e:
+        return {"grade": 0, "feedback": f"Error: {str(e)}"}
+
+def parse_response(response_text):
+    """Parse the AI response to extract grade and feedback"""
+    try:
+        # Extract grade
+        grade_match = re.search(r'GRADE:\s*(\d+(?:\.\d+)?)', response_text, re.IGNORECASE)
+        if grade_match:
+            grade = float(grade_match.group(1))
+            grade = max(0, min(10, int(round(grade))))
+        else:
+            # Try to find any number that could be a grade
+            numbers = re.findall(r'\b(\d+(?:\.\d+)?)\b', response_text)
+            grade = 5  # default
+            for num in numbers:
+                num_val = float(num)
+                if 0 <= num_val <= 10:
+                    grade = int(round(num_val))
+                    break
+        
+        # Extract feedback
+        feedback_match = re.search(r'FEEDBACK:\s*(.*)', response_text, re.IGNORECASE | re.DOTALL)
+        if feedback_match:
+            feedback = feedback_match.group(1).strip()
+        else:
+            feedback = response_text.strip()
+        
+        return {"grade": grade, "feedback": feedback}
+        
+    except Exception as e:
+        return {"grade": 5, "feedback": f"Error parsing response: {str(e)}\n\nRaw response: {response_text}"}
+
 def get_grade_class(grade):
     """Return CSS class based on grade"""
     if grade >= 8:
@@ -98,7 +180,7 @@ def main():
     st.markdown("<h1 class='main-header'>🤖 AI Answer Grader with Gemini</h1>", 
                 unsafe_allow_html=True)
     
-    # Sidebar for API key management
+    # Sidebar
     with st.sidebar:
         st.header("⚙️ Configuration")
         
@@ -106,17 +188,15 @@ def main():
         api_key = st.text_input(
             "Google API Key",
             type="password",
-            help="Enter your Google API key for Gemini model access",
-            value=st.secrets.get("GOOGLE_API_KEY", "") if "GOOGLE_API_KEY" in st.secrets else ""
+            help="Enter your Google API key for Gemini model access"
         )
         
         if api_key:
-            os.environ['GOOGLE_API_KEY'] = api_key
-            st.success("API key set successfully!")
+            st.success("API key entered!")
         
         st.markdown("---")
         
-        # Information section
+        # Instructions
         st.header("📋 How to Use")
         st.markdown("""
         1. Enter your Google API key above
@@ -141,7 +221,7 @@ def main():
         
         st.markdown("---")
         
-        # Get API key link
+        # API key link
         st.markdown("""
         **Need an API key?**
         
@@ -149,7 +229,7 @@ def main():
         [Google AI Studio](https://makersuite.google.com/app/apikey)
         """)
     
-    # Main content area
+    # Main content
     col1, col2 = st.columns([2, 1])
     
     with col1:
@@ -181,10 +261,9 @@ def main():
             )
     
     with col2:
-        # Display area for results
+        # Results area
         st.header("📈 Results")
         
-        # Check if API key is provided
         if not api_key:
             st.markdown("""
             <div class="info-box">
@@ -193,7 +272,6 @@ def main():
             </div>
             """, unsafe_allow_html=True)
         else:
-            # Display example or results
             if 'last_result' in st.session_state:
                 result = st.session_state.last_result
                 grade = result['grade']
@@ -224,7 +302,7 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
     
-    # Process grading when button is clicked
+    # Process grading
     if grade_button:
         if not api_key:
             st.error("❌ Please enter your Google API key in the sidebar first!")
@@ -233,33 +311,16 @@ def main():
         elif not answer.strip():
             st.error("❌ Please enter an answer!")
         else:
-            try:
-                # Show progress
-                with st.spinner("🤔 AI is analyzing the answer..."):
-                    # Initialize grader
-                    grader = GeminiGrader()
-                    
-                    # Test connection first
-                    connection_success, error_msg = grader.test_connection()
-                    if not connection_success:
-                        st.error(f"❌ {error_msg}")
-                        return
-                    
-                    # Grade the answer
-                    result = grader.grade_answer(question, answer)
-                    
-                    # Store result in session state
-                    st.session_state.last_result = result
-                    
-                    # Show success message
+            with st.spinner("🤔 AI is analyzing the answer..."):
+                result = grade_answer(question, answer, api_key)
+                st.session_state.last_result = result
+                
+                if result['grade'] > 0:
                     st.success("✅ Answer graded successfully!")
-                    
-                    # Rerun to display results
-                    st.rerun()
-                    
-            except Exception as e:
-                st.error(f"❌ An error occurred: {str(e)}")
-                st.error("Please check your API key and internet connection.")
+                else:
+                    st.error("❌ " + result['feedback'])
+                
+                st.rerun()
     
     # Footer
     st.markdown("---")
