@@ -1,7 +1,12 @@
 import streamlit as st
 import os
-from gemini_grader import GeminiGrader
 import time
+
+try:
+    from gemini_grader import GeminiGrader
+except ImportError as e:
+    st.error(f"Import error: {e}")
+    st.stop()
 
 # Set page configuration
 st.set_page_config(
@@ -101,7 +106,8 @@ def main():
         api_key = st.text_input(
             "Google API Key",
             type="password",
-            help="Enter your Google API key for Gemini model access"
+            help="Enter your Google API key for Gemini model access",
+            value=st.secrets.get("GOOGLE_API_KEY", "") if "GOOGLE_API_KEY" in st.secrets else ""
         )
         
         if api_key:
