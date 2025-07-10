@@ -3,6 +3,14 @@ import google.generativeai as genai
 import re
 import os
 
+# ====================================================================
+# 🔑 API KEY CONFIGURATION
+# ====================================================================
+# Replace "abc-123" with your actual Google API key
+# Get your API key from: https://makersuite.google.com/app/apikey
+GOOGLE_API_KEY = "AIzaSyC35mil4vDAAmBkEVFVGyY8XEA5qGP3HSs"
+# ====================================================================
+
 # Set page configuration
 st.set_page_config(
     page_title="AI Answer Grader",
@@ -184,22 +192,22 @@ def main():
     with st.sidebar:
         st.header("⚙️ Configuration")
         
-        # API Key input
-        api_key = st.text_input(
-            "Google API Key",
-            type="password",
-            help="Enter your Google API key for Gemini model access"
-        )
+        # API Key (hardcoded in codebase)
+        api_key = GOOGLE_API_KEY  # Using the API key from top of file
         
-        if api_key:
-            st.success("API key entered!")
+        st.markdown(f"""
+        <div style="background-color: #d4edda; padding: 10px; border-radius: 5px; border-left: 4px solid #28a745;">
+            <strong>✅ API Key Configured</strong><br>
+            Using built-in API key: <code>{api_key}</code>
+        </div>
+        """, unsafe_allow_html=True)
         
         st.markdown("---")
         
         # Instructions
         st.header("📋 How to Use")
         st.markdown("""
-        1. Enter your Google API key above
+        1. ✅ API key is already configured
         2. Input the question in the first text area
         3. Input the answer in the second text area
         4. Click 'Grade Answer' to get your score
@@ -222,11 +230,12 @@ def main():
         st.markdown("---")
         
         # API key link
-        st.markdown("""
-        **Need an API key?**
+        st.markdown(f"""
+        **API Key Status:**
         
-        Get your free Google API key from:
-        [Google AI Studio](https://makersuite.google.com/app/apikey)
+        ✅ Using hardcoded API key: `{GOOGLE_API_KEY}`
+        
+        To change the API key, modify `GOOGLE_API_KEY` at the top of `gemini_grader.py`
         """)
     
     # Main content
@@ -264,49 +273,40 @@ def main():
         # Results area
         st.header("📈 Results")
         
-        if not api_key:
-            st.markdown("""
-            <div class="info-box">
-                <strong>⚠️ API Key Required</strong><br>
-                Please enter your Google API key in the sidebar to start grading.
+        # API key is always available now
+        if 'last_result' in st.session_state:
+            result = st.session_state.last_result
+            grade = result['grade']
+            feedback = result['feedback']
+            
+            # Display grade
+            grade_class = get_grade_class(grade)
+            grade_emoji = get_grade_emoji(grade)
+            
+            st.markdown(f"""
+            <div class="grade-display {grade_class}">
+                {grade_emoji} {grade}/10
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Display feedback
+            st.markdown(f"""
+            <div class="feedback-box">
+                <strong>📝 Detailed Feedback:</strong><br>
+                {feedback}
             </div>
             """, unsafe_allow_html=True)
         else:
-            if 'last_result' in st.session_state:
-                result = st.session_state.last_result
-                grade = result['grade']
-                feedback = result['feedback']
-                
-                # Display grade
-                grade_class = get_grade_class(grade)
-                grade_emoji = get_grade_emoji(grade)
-                
-                st.markdown(f"""
-                <div class="grade-display {grade_class}">
-                    {grade_emoji} {grade}/10
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Display feedback
-                st.markdown(f"""
-                <div class="feedback-box">
-                    <strong>📝 Detailed Feedback:</strong><br>
-                    {feedback}
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div class="info-box">
-                    <strong>🚀 Ready to Grade!</strong><br>
-                    Enter a question and answer, then click "Grade Answer" to see results here.
-                </div>
-                """, unsafe_allow_html=True)
+            st.markdown("""
+            <div class="info-box">
+                <strong>🚀 Ready to Grade!</strong><br>
+                Enter a question and answer, then click "Grade Answer" to see results here.
+            </div>
+            """, unsafe_allow_html=True)
     
     # Process grading
     if grade_button:
-        if not api_key:
-            st.error("❌ Please enter your Google API key in the sidebar first!")
-        elif not question.strip():
+        if not question.strip():
             st.error("❌ Please enter a question!")
         elif not answer.strip():
             st.error("❌ Please enter an answer!")
