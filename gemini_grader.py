@@ -8,7 +8,8 @@ import os
 # ====================================================================
 # Replace "abc-123" with your actual Google API key
 # Get your API key from: https://makersuite.google.com/app/apikey
-GOOGLE_API_KEY = "abc-123"
+# Example format: "AIzaSyC7_YourActualAPIKeyHere"
+GOOGLE_API_KEY = "AIzaSyC35mil4vDAAmBkEVFVGyY8XEA5qGP3HSs"  # ⚠️ REPLACE WITH YOUR REAL API KEY
 # ====================================================================
 
 # Set page configuration
@@ -74,25 +75,39 @@ st.markdown("""
 def grade_answer(question, answer, api_key):
     """Grade an answer using Gemini API"""
     try:
+        # Check if API key is the default placeholder
+        if api_key == "abc-123":
+            return {
+                "grade": 0, 
+                "feedback": "⚠️ Error: Please replace 'abc-123' with your real Google API key in the code. Get your API key from https://makersuite.google.com/app/apikey"
+            }
+        
         # Configure Gemini
         genai.configure(api_key=api_key)
         
         # Try different model names
         model_names = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro', 'gemini-1.0-pro']
         model = None
+        last_error = None
         
         for model_name in model_names:
             try:
                 model = genai.GenerativeModel(model_name)
-                # Test the model
-                test_response = model.generate_content("Say hello")
-                if test_response.text:
+                # Test the model with a simple request
+                test_response = model.generate_content("Hello, respond with just 'OK'")
+                if test_response.text and "OK" in test_response.text:
                     break
-            except:
+                else:
+                    last_error = f"Model {model_name} responded but with unexpected content"
+            except Exception as e:
+                last_error = f"Model {model_name} failed: {str(e)}"
                 continue
         
         if not model:
-            return {"grade": 0, "feedback": "Could not connect to any Gemini model"}
+            return {
+                "grade": 0, 
+                "feedback": f"❌ Could not connect to any Gemini model. Last error: {last_error}. Please check your API key."
+            }
         
         # Create grading prompt
         prompt = f"""
@@ -122,12 +137,25 @@ def grade_answer(question, answer, api_key):
         response = model.generate_content(prompt)
         
         if response.text:
-            return parse_response(response.text)
+            result = parse_response(response.text)
+            # Add debug info if grade is 0
+            if result['grade'] == 0:
+                result['feedback'] += f"\n\n🔍 Debug Info: Raw AI Response: {response.text[:200]}..."
+            return result
         else:
-            return {"grade": 0, "feedback": "No response from AI model"}
+            return {"grade": 0, "feedback": "❌ No response from AI model. The API call succeeded but returned empty content."}
             
     except Exception as e:
-        return {"grade": 0, "feedback": f"Error: {str(e)}"}
+        error_msg = str(e)
+        if "API_KEY_INVALID" in error_msg or "invalid" in error_msg.lower():
+            return {"grade": 0, "feedback": "❌ Invalid API key. Please check your Google API key."}
+        elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
+            return {"grade": 0, "feedback": "❌ API quota exceeded. Please check your usage limits."}
+        elif "permission" in error_msg.lower():
+            return {"grade": 0, "feedback": "❌ Permission denied. Please check if your API key has access to Gemini models."}
+        else:
+            return {"grade": 0, "feedback": f"❌ Connection error: {error_msg}"}
+
 
 def parse_response(response_text):
     """Parse the AI response to extract grade and feedback"""
@@ -192,15 +220,36 @@ def main():
     with st.sidebar:
         st.header("⚙️ Configuration")
         
-        # API Key status (hidden from users)
-        api_key = GOOGLE_API_KEY  # Using the API key from top of file
+        # API Key status (with validation)
+        api_key = GOOGLE_API_KEY
         
-        st.markdown("""
-        <div style="background-color: #d4edda; padding: 10px; border-radius: 5px; border-left: 4px solid #28a745;">
-            <strong>✅ API Configuration</strong><br>
-            System is ready for AI grading
-        </div>
-        """, unsafe_allow_html=True)
+        # Check if using placeholder API key
+        if api_key == "abc-123":
+            st.markdown("""
+            <div style="background-color: #f8d7da; padding: 10px; border-radius: 5px; border-left: 4px solid #dc3545;">
+                <strong>⚠️ Configuration Needed</strong><br>
+                Please replace the placeholder API key with your real Google API key in the code
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="background-color: #d4edda; padding: 10px; border-radius: 5px; border-left: 4px solid #28a745;">
+                <strong>✅ API Configuration</strong><br>
+                System is ready for AI grading
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Test API connection
+        st.header("🔧 API Test")
+        if st.button("Test API Connection", help="Check if the API key is working"):
+            with st.spinner("Testing API..."):
+                test_result = grade_answer("What is 2+2?", "4", api_key)
+                if test_result['grade'] > 0:
+                    st.success("✅ API is working correctly!")
+                else:
+                    st.error(f"❌ API Test Failed: {test_result['feedback']}")
         
         st.markdown("---")
         
